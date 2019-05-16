@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Filings;
 using Microsoft.Azure.ServiceBus;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CalcbenchListener
 {
@@ -19,22 +20,31 @@ namespace CalcbenchListener
     {
         const string CalcbenchFilingsTopic = "filings";
         static ISubscriptionClient subscriptionClient;
-        static HttpClient client = new HttpClient();
+        static HttpClient calcbenchClient = new HttpClient();
+        static HashSet<string> tickersToTrack;
 
         static void Main(string[] args)
         {
-            
+            AsyncSetCalcbenchCredentials().GetAwaiter().GetResult();
+            var testFiling = new Filing
+            {
+                ticker = "WDC",
+                fiscal_year = 2019,
+                fiscal_period = 1
+            };
+            GetPressReleaseData(testFiling).GetAwaiter().GetResult();
+            tickersToTrack = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "msft", "ZVZZT", "wdc" };
             MainAsync().GetAwaiter().GetResult();
         }
 
         static async Task AsyncSetCalcbenchCredentials()
         {
-            client.BaseAddress = new Uri("https://www.calcbench.com");
+            calcbenchClient.BaseAddress = new Uri("https://www.calcbench.com");
             var credentials = new {
                 email = Properties.Settings.Default.CalcbenchUsername,
                 password = Properties.Settings.Default.CalcbenchPassword
             };
-            var response = await client.PostAsJsonAsync("account/LogOnAjax", credentials);
+            var response = await calcbenchClient.PostAsJsonAsync("account/LogOnAjax", credentials);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
             if (content != "true")
@@ -50,12 +60,16 @@ namespace CalcbenchListener
             var connectionString = Properties.Settings.Default.ServiceBusConnectionString;
             var subscription = Properties.Settings.Default.Subscription;
             subscriptionClient = new SubscriptionClient(connectionString, CalcbenchFilingsTopic, subscription);
-            await subscriptionClient.RemoveRuleAsync(RuleDescription.DefaultRuleName);
+            var rules = await subscriptionClient.GetRulesAsync();
+            await Task.WhenAll(rules.Select(async rule => await subscriptionClient.RemoveRuleAsync(rule.Name)));
+
             await subscriptionClient.AddRuleAsync(new RuleDescription
             {
                 Filter = new SqlFilter("FilingType = 'eightk_earningsPressRelease'"),
                 Name = "PressReleasesOnly"
             });
+
+
 
             Console.WriteLine("======================================================");
             Console.WriteLine("Press ENTER key to exit after receiving all the messages.");
@@ -92,7 +106,11 @@ namespace CalcbenchListener
             // Process the message.
             Console.WriteLine($"Received message: SequenceNumber:{message.SystemProperties.SequenceNumber} Body:{Encoding.UTF8.GetString(message.Body)}");
             var filing = JsonConvert.DeserializeObject<Filing>(Encoding.UTF8.GetString(message.Body));
-            await GetPressReleaseData(filing);
+            if (tickersToTrack.Contains(filing.ticker))
+            {
+                await GetPressReleaseData(filing);
+            }
+
 
             
             // Complete the message so that it is not received again.
@@ -117,19 +135,25 @@ namespace CalcbenchListener
 
         static async Task GetPressReleaseData(Filing filing)
         {
+
             var apiParams = new PressReleaseSearchParams()
             {
                 CompaniesParameters = new CompaniesParameters()
                 {
-                    companyIdentifiers = { filing.ticker }
+                    companyIdentifiers = new[] { filing.ticker }
                 },
                 PeriodParameters = new PeriodParameters()
                 {
                     Period = (Period)filing.fiscal_period,
-                    Year = filing.fiscal_year
+                    Year = filing.fiscal_year,
+                },
+                PageParameters = new PressReleaseParams()
+                {
+                    MatchToPreviousPeriod = true,
+                    StandardizeBOPPeriods = true
                 }
             };
-            var response = await client.PostAsJsonAsync("api/pressReleaseData", apiParams);
+            var response = await calcbenchClient.PostAsJsonAsync("api/pressReleaseData", apiParams);
             response.EnsureSuccessStatusCode();
             var filingDataPonts = await response.Content.ReadAsAsync<IEnumerable<PressReleaseDataPoint>>();
             foreach (var item in filingDataPonts)
@@ -165,14 +189,12 @@ namespace CalcbenchListener
     public class CompaniesParameters
     {
         [DataMember(Name = "companyIdentifiers")]
-        public List<string> companyIdentifiers;
+        public IEnumerable<string> companyIdentifiers;
         [DataMember(Name = "entireUniverse")]
         public bool EntireUniverse { get; set; }
         [DataMember(Name = "calcbenchEntityIDs")]
-        public List<int> CalcbenchEntityIDs { get; set; } = null;
+        public IEnumerable<int> CalcbenchEntityIDs { get; set; } = null;
     }
-
-
 
     [DataContract]
     public class PeriodParameters
@@ -304,12 +326,7 @@ namespace CalcbenchListener
         [DataMember(Name = "matching_trace_link")]
         public string MatchingTraceLink { get; set; }
     }
-
-
-
 }
-
-
 
 namespace Filings
 {
