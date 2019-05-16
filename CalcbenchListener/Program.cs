@@ -18,22 +18,21 @@ namespace CalcbenchListener
 {
     class Program
     {
+        const string AzureServiceBusConnectionString = "{Endpoint=sb://calcbench.servicebus.windows.net/;SharedAccessKey...";
+        const string QueueSubscription = "{your queue subscription}";
         const string CalcbenchFilingsTopic = "filings";
+        const string CalcbenchUserName = "{the email you use to logon to Calcbench}";
+        const string CalcbenchPassword = "{the password you use on calcbench.com}";
         static ISubscriptionClient subscriptionClient;
         static HttpClient calcbenchClient = new HttpClient();
-        static HashSet<string> tickersToTrack;
+        static HashSet<string> tickersToTrack = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+            "msft",
+            "ZVZZT",
+            "wdc"
+        };
 
         static void Main(string[] args)
         {
-            AsyncSetCalcbenchCredentials().GetAwaiter().GetResult();
-            var testFiling = new Filing
-            {
-                ticker = "WDC",
-                fiscal_year = 2019,
-                fiscal_period = 1
-            };
-            GetPressReleaseData(testFiling).GetAwaiter().GetResult();
-            tickersToTrack = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "msft", "ZVZZT", "wdc" };
             MainAsync().GetAwaiter().GetResult();
         }
 
@@ -41,8 +40,8 @@ namespace CalcbenchListener
         {
             calcbenchClient.BaseAddress = new Uri("https://www.calcbench.com");
             var credentials = new {
-                email = Properties.Settings.Default.CalcbenchUsername,
-                password = Properties.Settings.Default.CalcbenchPassword
+                email = CalcbenchUserName,
+                password = CalcbenchPassword
             };
             var response = await calcbenchClient.PostAsJsonAsync("account/LogOnAjax", credentials);
             response.EnsureSuccessStatusCode();
@@ -57,9 +56,8 @@ namespace CalcbenchListener
         static async Task MainAsync()
         {
             await AsyncSetCalcbenchCredentials();
-            var connectionString = Properties.Settings.Default.ServiceBusConnectionString;
-            var subscription = Properties.Settings.Default.Subscription;
-            subscriptionClient = new SubscriptionClient(connectionString, CalcbenchFilingsTopic, subscription);
+            var connectionString = AzureServiceBusConnectionString;            
+            subscriptionClient = new SubscriptionClient(connectionString, CalcbenchFilingsTopic, QueueSubscription);
             var rules = await subscriptionClient.GetRulesAsync();
             await Task.WhenAll(rules.Select(async rule => await subscriptionClient.RemoveRuleAsync(rule.Name)));
 
@@ -158,6 +156,7 @@ namespace CalcbenchListener
             var filingDataPonts = await response.Content.ReadAsAsync<IEnumerable<PressReleaseDataPoint>>();
             foreach (var item in filingDataPonts)
             {
+                Console.WriteLine($"{item.Label}, {item.EffectiveValue}");
                 // database.writeDatapoint(filingDataPoint);
             }
 

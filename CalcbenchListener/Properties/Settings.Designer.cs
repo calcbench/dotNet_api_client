@@ -22,30 +22,5 @@ namespace CalcbenchListener.Properties {
                 return defaultInstance;
             }
         }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Endpoint=sb://calcbench.servicebus.windows.net/;SharedAccessKeyName=RootManageSha" +
-            "redAccessKey;SharedAccessKey=iyg1HHDSe7lXfNeuRX3ZzuATXgCrga0edFgdXh0GC0s=")]
-        public string ServiceBusConnectionString {
-            get {
-                return ((string)(this["ServiceBusConnectionString"]));
-            }
-            set {
-                this["ServiceBusConnectionString"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("andrew_test")]
-        public string Subscription {
-            get {
-                return ((string)(this["Subscription"]));
-            }
-            set {
-                this["Subscription"] = value;
-            }
-        }
     }
 }
