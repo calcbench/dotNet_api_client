@@ -4,27 +4,49 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System;
 using System.Runtime.Serialization;
+using System.Net.Http;
+
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Filings;
+using Microsoft.Azure.ServiceBus;
+using System.Collections.Generic;
 
 namespace CalcbenchListener
 {
-    using System;
-    using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Microsoft.Azure.ServiceBus;
-
     class Program
     {
         const string CalcbenchFilingsTopic = "filings";
         static ISubscriptionClient subscriptionClient;
+        static HttpClient client = new HttpClient();
 
         static void Main(string[] args)
         {
+            
             MainAsync().GetAwaiter().GetResult();
+        }
+
+        static async Task AsyncSetCalcbenchCredentials()
+        {
+            client.BaseAddress = new Uri("https://www.calcbench.com");
+            var credentials = new {
+                email = Properties.Settings.Default.CalcbenchUsername,
+                password = Properties.Settings.Default.CalcbenchPassword
+            };
+            var response = await client.PostAsJsonAsync("account/LogOnAjax", credentials);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+            if (content != "true")
+            {
+                throw new Exception("Incorrect Credentials, use the email and password you use to login to Calcbench.");
+            }
+            
         }
 
         static async Task MainAsync()
         {
+            await AsyncSetCalcbenchCredentials();
             var connectionString = Properties.Settings.Default.ServiceBusConnectionString;
             var subscription = Properties.Settings.Default.Subscription;
             subscriptionClient = new SubscriptionClient(connectionString, CalcbenchFilingsTopic, subscription);
@@ -63,7 +85,8 @@ namespace CalcbenchListener
         {
             // Process the message.
             Console.WriteLine($"Received message: SequenceNumber:{message.SystemProperties.SequenceNumber} Body:{Encoding.UTF8.GetString(message.Body)}");
-            var filing = JsonConvert.DeserializeObject<Filings.Filing>(Encoding.UTF8.GetString(message.Body));
+            var filing = JsonConvert.DeserializeObject<Filing>(Encoding.UTF8.GetString(message.Body));
+            await GetFilingData(filing);
             // Complete the message so that it is not received again.
             // This can be done only if the subscriptionClient is created in ReceiveMode.PeekLock mode (which is the default).
             await subscriptionClient.CompleteAsync(message.SystemProperties.LockToken);
@@ -83,8 +106,202 @@ namespace CalcbenchListener
             Console.WriteLine($"- Executing Action: {context.Action}");
             return Task.CompletedTask;
         }
+
+        static async Task GetFilingData(Filing filing)
+        {
+            var apiParams = new PressReleaseSearchParams()
+            {
+                CompaniesParameters = new CompaniesParameters()
+                {
+                    companyIdentifiers = { filing.ticker }
+                },
+                PeriodParameters = new PeriodParameters()
+                {
+                    Period = (Period)filing.fiscal_period,
+                    Year = filing.fiscal_year
+                }
+            };
+            var response = await client.PostAsJsonAsync("api/pressReleaseData", apiParams);
+            response.EnsureSuccessStatusCode();
+            var filingDataPonts = await response.Content.ReadAsAsync<IEnumerable<PressReleaseDataPoint>>();
+            foreach (var item in filingDataPonts)
+            {
+                // database.writeDatapoint(filingDataPoint);
+            }
+
+        }
     }
+
+    [DataContract]
+    public class PressReleaseSearchParams
+    {
+        [DataMember(Name = "pageParameters")]
+        public PressReleaseParams PageParameters { get; set; }
+        [DataMember(Name = "companiesParameters")]
+        public CompaniesParameters CompaniesParameters { get; set; }
+
+        [DataMember(Name = "periodParameters")]
+        public PeriodParameters PeriodParameters { get; set; }
+    }
+
+    [DataContract]
+    public class PressReleaseParams
+    {
+        [DataMember(Name = "matchToPreviousPeriod")]
+        public bool MatchToPreviousPeriod { get; set; }
+        [DataMember(Name = "standardizeBOPPeriods")]
+        public bool StandardizeBOPPeriods { get; set; }   // for CITI -> they want the BOY/BOP periods to match the EOP/EOY periods, not the 'right' way
+    }
+
+    [DataContract]
+    public class CompaniesParameters
+    {
+        [DataMember(Name = "companyIdentifiers")]
+        public List<string> companyIdentifiers;
+        [DataMember(Name = "entireUniverse")]
+        public bool EntireUniverse { get; set; }
+        [DataMember(Name = "calcbenchEntityIDs")]
+        public List<int> CalcbenchEntityIDs { get; set; } = null;
+    }
+
+
+
+    [DataContract]
+    public class PeriodParameters
+    {
+        [DataMember(Name = "year")]
+        public int? Year { get; set; } = default(int?);
+        [DataMember(Name = "period")]
+        public virtual Period? Period { get; set; } = default(Period?);
+        [DataMember(Name = "endYear")]
+        public int? EndYear { get; set; } = default(int?);
+        [DataMember(Name = "endPeriod")]
+        public int? EndPeriod { get; set; } = default(int?);
+        [DataMember(Name = "periodType")]
+        public string PeriodType { get; set; } = null;
+        [DataMember(Name = "useFiscalPeriod")]
+        public bool UseFiscalPeriod { get; set; }
+
+        [DataMember(Name = "allHistory")]
+        public bool AllHistory { get; set; } = false;
+        [DataMember(Name = "updateDate")]
+        public DateTime? UpdateDate { get; set; } = default(DateTime?);
+        [DataMember(Name = "updatedFrom")]
+        public DateTime? UpdatedFrom { get; set; } = default(DateTime?);
+        [DataMember(Name = "asOriginallyReported")]
+        public bool AsOriginallyReported { get; set; }
+    }
+
+
+    public enum Period
+    {
+        unset = -1,
+        y = 0,
+        q1 = 1,
+        q2 = 2,
+        q3 = 3,
+        q4 = 4,
+        h1 = 5,
+        Q3Cum = 6,
+        TTM = 10,
+        MRQ = 11,
+        MRQ_fiscal = 12,
+        MRCumulative = 13,
+        year_fiscal = 20,
+        combined = 21,
+        allHistory = 22,
+        MostRecentPeriod = 23
+    }
+
+
+    [DataContract]
+    public class PressReleaseDataPoint
+    {
+        [DataMember(Name = "fact_id")]
+        public int FactID { get; set; }
+        [DataMember(Name = "sec_filing_id")]
+        public int SECFilingID { get; set; }
+        [DataMember(Name = "effective_value")]
+        public decimal? EffectiveValue { get; set; }
+        [DataMember(Name = "reported_value")]
+        public decimal? ReportedValue { get; set; }
+        [DataMember(Name = "entity_id")]
+        public int EntityID { get; set; }
+        [DataMember(Name = "fiscal_year")]
+        public int? FiscalYear { get; set; }
+        [DataMember(Name = "fiscal_period")]
+        public string FiscalPeriod { get; set; }
+        [DataMember(Name = "UOM")]
+        public string UnitOfMeasure { get; set; }
+        [DataMember(Name = "qname_id_min")]
+        public int? QnameIDMin { get; set; }
+        [DataMember(Name = "period_start")]
+        public DateTime? PeriodStart { get; set; }
+        [DataMember(Name = "period_end")]
+        public DateTime? PeriodEnd { get; set; }
+        [DataMember(Name = "period_instant")]
+        public DateTime? PeriodInstant { get; set; }
+        [DataMember(Name = "presentation_order")]
+        public int? PresentationOrder { get; set; }
+        [DataMember(Name = "statement_type")]
+        public string StatementType { get; set; }
+        [DataMember(Name = "table_id")]
+        public string TableID { get; set; }
+        [DataMember(Name = "label")]
+        public string Label { get; set; }
+        [DataMember(Name = "indent_level")]
+        public int? IndentLevel { get; set; }
+        [DataMember(Name = "column_label")]
+        public string ColumnLabel { get; set; }
+        [DataMember(Name = "column_label_short")]
+        public string ColumnLabelShort { get; set; }
+        [DataMember(Name = "presentation_order_original")]
+        public int? PresentationOrderOriginal { get; set; }
+        [DataMember(Name = "column_index")]
+        public int? ColumnIndex { get; set; }
+        [DataMember(Name = "extract_tag")]
+        public string ExtractTag { get; set; }
+        [DataMember(Name = "range_low")]
+        public bool? RangeLow { get; set; }
+        [DataMember(Name = "range_high")]
+        public bool? RangeHigh { get; set; }
+        [DataMember(Name = "is_guidance")]
+        public bool? IsGuidance { get; set; }
+        [DataMember(Name = "is_ulp_metric")]
+        public bool? ISUlpMetric { get; set; }
+        [DataMember(Name = "is_strict")]
+        public bool? IsStrict { get; set; }
+        [DataMember(Name = "filing_section")]
+        public int? FilingSection { get; set; }
+        [DataMember(Name = "is_non_gaap")]
+        public bool? IsNonGAAP { get; set; }
+        [DataMember(Name = "is_change_amount")]
+        public bool? IsChangeAmount { get; set; }
+        [DataMember(Name = "is_segment")]
+        public bool? IsSegment { get; set; }
+        [DataMember(Name = "is_bop_value")]
+        public bool? IsBalanceOfPaymentAmount { get; set; }
+        [DataMember(Name = "table_tag")]
+        public string TableTag { get; set; }
+        [DataMember(Name = "trace_link")]
+        public string TraceLink { get; set; }
+        [DataMember(Name = "matching_extract_tag")]
+        public string MatchingExtractTag { get; set; }
+        [DataMember(Name = "matching_fact_id_q")]
+        public int? MatchingFactID { get; set; }
+        [DataMember(Name = "matching_fact_id_y")]
+        public int? MatchingFactIDY { get; set; }
+        [DataMember(Name = "exact_match")]
+        public bool? ExactMatch { get; set; }
+        [DataMember(Name = "matching_trace_link")]
+        public string MatchingTraceLink { get; set; }
+    }
+
+
+
 }
+
+
 
 namespace Filings
 {
