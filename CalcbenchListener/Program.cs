@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus;
 
@@ -9,12 +10,7 @@ namespace CalcbenchListener
         static IQueueClient queueClient;
         static void Main(string[] args)
         {
-            // The code provided will print ‘Hello World’ to the console.
-            // Press Ctrl+F5 (or go to Debug > Start Without Debugging) to run your app.
-            Console.WriteLine("Hello World!");
-            Console.ReadKey();
-
-            // Go to http://aka.ms/dotnet-get-started-console to continue learning how to build a console app! 
+            AsyncListenForFilings().GetAwaiter().GetResult();
         }
 
         static async Task AsyncListenForFilings()
@@ -28,12 +24,28 @@ namespace CalcbenchListener
 
         static void RegisterOnFilingHandlerAndReceiveMessages()
         {
-            queueClient.RegisterMessageHandler()
+            var messageHandlerOptions = new MessageHandlerOptions(ExceptionReceivedHandler)
+            {
+                MaxConcurrentCalls = 1,
+                AutoComplete = false
+            };
+            queueClient.RegisterMessageHandler(ProcessFiling, messageHandlerOptions);
         }
 
-        static async Task ProcessFiling()
+        static async Task ProcessFiling(Message message, CancellationToken token)
         {
+            await queueClient.CompleteAsync(message.SystemProperties.LockToken);
+        }
 
+        static Task ExceptionReceivedHandler(ExceptionReceivedEventArgs exceptionReceivedEventArgs)
+        {
+            Console.WriteLine($"Message handler encountered an exception {exceptionReceivedEventArgs.Exception}.");
+            var context = exceptionReceivedEventArgs.ExceptionReceivedContext;
+            Console.WriteLine("Exception context for troubleshooting:");
+            Console.WriteLine($"- Endpoint: {context.Endpoint}");
+            Console.WriteLine($"- Entity Path: {context.EntityPath}");
+            Console.WriteLine($"- Executing Action: {context.Action}");
+            return Task.CompletedTask;
         }
     }
 }
