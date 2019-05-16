@@ -25,7 +25,8 @@ namespace CalcbenchListener.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("connectionstring")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Endpoint=sb://calcbench.servicebus.windows.net/;SharedAccessKeyName=RootManageSha" +
+            "redAccessKey;SharedAccessKey=iyg1HHDSe7lXfNeuRX3ZzuATXgCrga0edFgdXh0GC0s=")]
         public string ServiceBusConnectionString {
             get {
                 return ((string)(this["ServiceBusConnectionString"]));
@@ -37,25 +38,13 @@ namespace CalcbenchListener.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string QueueName {
+        [global::System.Configuration.DefaultSettingValueAttribute("andrew_test")]
+        public string Subscription {
             get {
-                return ((string)(this["QueueName"]));
+                return ((string)(this["Subscription"]));
             }
             set {
-                this["QueueName"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("citigroup")]
-        public string Topic {
-            get {
-                return ((string)(this["Topic"]));
-            }
-            set {
-                this["Topic"] = value;
+                this["Subscription"] = value;
             }
         }
     }
