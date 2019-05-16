@@ -50,6 +50,12 @@ namespace CalcbenchListener
             var connectionString = Properties.Settings.Default.ServiceBusConnectionString;
             var subscription = Properties.Settings.Default.Subscription;
             subscriptionClient = new SubscriptionClient(connectionString, CalcbenchFilingsTopic, subscription);
+            await subscriptionClient.RemoveRuleAsync(RuleDescription.DefaultRuleName);
+            await subscriptionClient.AddRuleAsync(new RuleDescription
+            {
+                Filter = new SqlFilter("FilingType = 'eightk_earningsPressRelease'"),
+                Name = "PressReleasesOnly"
+            });
 
             Console.WriteLine("======================================================");
             Console.WriteLine("Press ENTER key to exit after receiving all the messages.");
@@ -86,7 +92,9 @@ namespace CalcbenchListener
             // Process the message.
             Console.WriteLine($"Received message: SequenceNumber:{message.SystemProperties.SequenceNumber} Body:{Encoding.UTF8.GetString(message.Body)}");
             var filing = JsonConvert.DeserializeObject<Filing>(Encoding.UTF8.GetString(message.Body));
-            await GetFilingData(filing);
+            await GetPressReleaseData(filing);
+
+            
             // Complete the message so that it is not received again.
             // This can be done only if the subscriptionClient is created in ReceiveMode.PeekLock mode (which is the default).
             await subscriptionClient.CompleteAsync(message.SystemProperties.LockToken);
@@ -107,7 +115,7 @@ namespace CalcbenchListener
             return Task.CompletedTask;
         }
 
-        static async Task GetFilingData(Filing filing)
+        static async Task GetPressReleaseData(Filing filing)
         {
             var apiParams = new PressReleaseSearchParams()
             {
