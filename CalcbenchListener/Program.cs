@@ -9,20 +9,19 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Configuration;
 using Filings;
 using Microsoft.Azure.ServiceBus;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Azure.ServiceBus.Primitives;
 
 namespace CalcbenchListener
 {
     class Program
     {
-        const string AzureServiceBusConnectionString = "{Endpoint=sb://calcbench.servicebus.windows.net/;SharedAccessKey...";
-        const string QueueSubscription = "{your queue subscription}";
+
         const string CalcbenchFilingsTopic = "filings";
-        const string CalcbenchUserName = "{the email you use to logon to Calcbench}";
-        const string CalcbenchPassword = "{the password you use on calcbench.com}";
         static ISubscriptionClient subscriptionClient;
         static HttpClient calcbenchClient = new HttpClient();
         static HashSet<string> tickersToTrack = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
@@ -40,8 +39,8 @@ namespace CalcbenchListener
         {
             calcbenchClient.BaseAddress = new Uri("https://www.calcbench.com");
             var credentials = new {
-                email = CalcbenchUserName,
-                password = CalcbenchPassword
+                email = ConfigurationManager.AppSettings["CalcbenchUserName"],
+                password = ConfigurationManager.AppSettings["CalcbenchPassword"]
             };
             var response = await calcbenchClient.PostAsJsonAsync("account/LogOnAjax", credentials);
             response.EnsureSuccessStatusCode();
@@ -49,15 +48,22 @@ namespace CalcbenchListener
             if (content != "true")
             {
                 throw new Exception("Incorrect Credentials, use the email and password you use to login to Calcbench.");
-            }
-            
+            }            
         }
 
         static async Task MainAsync()
         {
+
             await AsyncSetCalcbenchCredentials();
-            var connectionString = AzureServiceBusConnectionString;            
-            subscriptionClient = new SubscriptionClient(connectionString, CalcbenchFilingsTopic, QueueSubscription);
+            var connectionStringBuilder = new ServiceBusConnectionStringBuilder(ConfigurationManager.AppSettings["AzureServiceBusConnectionString"]);
+            Enum.TryParse(ConfigurationManager.AppSettings["AzureServiceBusTransportType"], out TransportType transportType);
+            var tokenProvider = TokenProvider.CreateSharedAccessSignatureTokenProvider(connectionStringBuilder.SasKeyName, connectionStringBuilder.SasKey);
+            subscriptionClient = new SubscriptionClient(endpoint: connectionStringBuilder.Endpoint,
+                topicPath: CalcbenchFilingsTopic,
+                subscriptionName: ConfigurationManager.AppSettings["QueueSubscription"],
+                tokenProvider: tokenProvider,
+                transportType: transportType);
+            
             var rules = await subscriptionClient.GetRulesAsync();
             await Task.WhenAll(rules.Select(async rule => await subscriptionClient.RemoveRuleAsync(rule.Name)));
 
@@ -66,7 +72,6 @@ namespace CalcbenchListener
                 Filter = new SqlFilter("FilingType = 'eightk_earningsPressRelease'"),
                 Name = "PressReleasesOnly"
             });
-
 
 
             Console.WriteLine("======================================================");

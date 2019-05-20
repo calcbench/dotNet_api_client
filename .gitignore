@@ -260,3 +260,4 @@ paket-files/
 __pycache__/
 *.pyc
 /CalcbenchListener/Properties/Settings.settings
+/CalcbenchListener/Credentials.config
