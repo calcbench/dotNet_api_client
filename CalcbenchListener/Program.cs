@@ -186,7 +186,7 @@ namespace CalcbenchListener
         [DataMember(Name = "matchToPreviousPeriod")]
         public bool MatchToPreviousPeriod { get; set; }
         [DataMember(Name = "standardizeBOPPeriods")]
-        public bool StandardizeBOPPeriods { get; set; }   // for CITI -> they want the BOY/BOP periods to match the EOP/EOY periods, not the 'right' way
+        public bool StandardizeBOPPeriods { get; set; } 
     }
 
     [DataContract]
