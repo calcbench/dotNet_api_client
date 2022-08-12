@@ -1,9 +1,7 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System;
-using System.Collections.Generic;
 using System.Runtime.Serialization;
-using System.Text;
 
 namespace Calcbench
 {
@@ -25,6 +23,7 @@ namespace Calcbench
         /// 10-K, 10-Q, etc
         /// </summary>
         public string document_type;
+
         [JsonConverter(typeof(StringEnumConverter))]
         [DataMember(Name = "filing_type", EmitDefaultValue = false)]
         public FilingType filing_type;
@@ -63,11 +62,13 @@ namespace Calcbench
         /// First link on Filing Detail page on Edgar
         /// </summary>
         public string link1;
+
         [DataMember(Name = "link2", EmitDefaultValue = false)]
         /// <summary>
         /// Second link on Filing Detail page on Edgar
         /// </summary>
         public string link2;
+
         [DataMember(Name = "link3", EmitDefaultValue = false)]
         /// <summary>
         /// Third link on the Filing Detail page on Edgar
