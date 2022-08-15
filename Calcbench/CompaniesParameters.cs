@@ -7,7 +7,7 @@ namespace Calcbench
     public class CompaniesParameters
     {
         [DataMember(Name = "companyIdentifiers")]
-        public IEnumerable<string> companyIdentifiers;
+        public IEnumerable<string> companyIdentifiers { get; set; }
 
         [DataMember(Name = "entireUniverse")]
         public bool EntireUniverse { get; set; }

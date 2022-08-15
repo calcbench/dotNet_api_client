@@ -1,36 +1,42 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using RestSharp;
-using RestSharp.Serializers.NewtonsoftJson;
 
 namespace Calcbench
 {
     public class APIClient
     {
         private readonly RestClient client;
-        private readonly string URLBase = "https://www.calcbench.com/api";
 
-        public APIClient()
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="URLBase">Point at a different server</param>
+        public APIClient(string URLBase = "https://www.calcbench.com/api")
         {
-            client = new RestClient(URLBase);
-   //         client.UseNewtonsoftJson();
+            var options = new RestClientOptions(URLBase);
+            if (URLBase != "https://www.calcbench.com/api")
+            {
+                options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
+            }
+
+            client = new RestClient(options);
+
+            // client.UseNewtonsoftJson();
         }
 
         public async Task<IEnumerable<Filing>> Filings(IEnumerable<string> companyIdentifiers)
         {
-            var request = new FilingQuery { CompaniesParameters = new CompaniesParameters { companyIdentifiers = companyIdentifiers } };
-            var response = client.PostJsonAsync<FilingQuery, IEnumerable<Filing>>("/filingsV2", request);
-            try
+            var query = new FilingQuery { CompaniesParameters = new CompaniesParameters { companyIdentifiers = companyIdentifiers } };
+            var request = new RestRequest("/filingsv2").AddJsonBody(query);
+            var response = await client.ExecutePostAsync<IEnumerable<Filing>>(request);
+            if (!response.IsSuccessful)
             {
-            var data = await response;
-                return data;
+                throw response.ErrorException;
             }
-            catch(Exception e)
-            {
-                Console.WriteLine(e);
-            }
-            return Array.Empty<Filing>();
+
+            return response.Data;
+
         }
     }
 }
