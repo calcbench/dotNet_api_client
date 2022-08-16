@@ -28,10 +28,10 @@ namespace Calcbench
         /// 10-K, 10-Q, etc
         /// </summary>
         public string document_type { get; set; }
-
+        
         [JsonConverter(typeof(StringEnumConverter))]
         [DataMember(Name = "filing_type", EmitDefaultValue = false)]
-        public FilingType filing_type { get; set; }
+        public FilingType filing_type { get; set; }        
 
         [DataMember(Name = "filing_sub_type", EmitDefaultValue = false)]
         public string filing_sub_type { get; set; }

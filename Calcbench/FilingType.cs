@@ -1,6 +1,4 @@
-﻿using System.Runtime.Serialization;
-
-namespace Calcbench
+﻿namespace Calcbench
 {
     public enum FilingType
     {

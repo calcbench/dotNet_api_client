@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using RestSharp;
+using RestSharp.Serializers.NewtonsoftJson;
 
 namespace Calcbench
 {
@@ -26,7 +27,7 @@ namespace Calcbench
 
             client = new RestClient(options);
 
-            // client.UseNewtonsoftJson();
+            client.UseNewtonsoftJson();
         }
 
         public async Task<IEnumerable<Filing>> Filings(IEnumerable<string> companyIdentifiers)
