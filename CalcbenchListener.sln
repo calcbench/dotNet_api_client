@@ -5,14 +5,15 @@ VisualStudioVersion = 17.2.32630.192
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CalcbenchListener", "CalcbenchListener\CalcbenchListener.csproj", "{C88A9B2D-565D-41B7-8B35-1BD7AADCE155}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Calcbench", "Calcbench\Calcbench.csproj", "{D068387C-9491-46CD-949D-1B3C6A1C8596}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Calcbench", "Calcbench\Calcbench.csproj", "{D068387C-9491-46CD-949D-1B3C6A1C8596}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{9E8A1883-E8FC-4053-BC12-DFE47A896D0D}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
+		readme.md = readme.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Examples", "Examples\Examples.csproj", "{4C603557-0B0A-487D-BBDD-720F29D96A78}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Examples", "Examples\Examples.csproj", "{4C603557-0B0A-487D-BBDD-720F29D96A78}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
