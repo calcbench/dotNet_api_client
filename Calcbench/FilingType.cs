@@ -2,7 +2,6 @@
 
 namespace Calcbench
 {
-    [DataContract]
     public enum FilingType
     {
         BusinessWirePR_replaced = -1,

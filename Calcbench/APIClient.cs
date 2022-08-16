@@ -14,10 +14,14 @@ namespace Calcbench
         /// <param name="URLBase">Point at a different server</param>
         public APIClient(string URLBase = "https://www.calcbench.com/api")
         {
-            var options = new RestClientOptions(URLBase);
+            var options = new RestClientOptions(URLBase)
+            {
+                ThrowOnAnyError = true,
+            };
             if (URLBase != "https://www.calcbench.com/api")
             {
                 options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
+
             }
 
             client = new RestClient(options);
